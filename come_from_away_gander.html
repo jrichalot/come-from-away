@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Come From Away — Gander Approach View</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    width: 100%; height: 100%;
+    background: #1a3a6e;
+    overflow: hidden;
+    font-family: 'Courier New', Courier, monospace;
+  }
+
+  #stage {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  #map-area {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+  }
+
+  #cfa-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* fade overlay */
+  #fade-overlay {
+    position: absolute;
+    inset: 0;
+    background: #0e2448;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 4s ease-in;
+    z-index: 10;
+  }
+  #fade-overlay.fading { opacity: 1; }
+
+  /* final message */
+  #final-msg {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 11;
+    transition: opacity 2s ease-in 3s;
+  }
+  #final-msg.visible { opacity: 1; }
+  #final-msg p {
+    color: #f5b800;
+    font-size: clamp(18px, 2.8vw, 36px);
+    letter-spacing: 6px;
+    text-align: center;
+    line-height: 2;
+    font-weight: bold;
+  }
+  #final-msg .subtitle {
+    color: #7ec8e8;
+    font-size: clamp(11px, 1.4vw, 17px);
+    letter-spacing: 4px;
+    margin-top: 16px;
+  }
+
+  /* HUD — top left */
+  #hud {
+    position: absolute;
+    top: 20px;
+    left: 24px;
+    z-index: 5;
+    pointer-events: none;
+  }
+  #hud-time {
+    font-size: clamp(14px, 1.6vw, 20px);
+    color: #f5b800;
+    letter-spacing: 3px;
+    font-weight: bold;
+  }
+  #hud-date {
+    font-size: clamp(16px, 2.2vw, 28px);
+    color: #7ec8e8;
+    letter-spacing: 4px;
+    margin-top: 6px;
+    font-weight: bold;
+  }
+  #hud-count {
+    font-size: clamp(15px, 2vw, 26px);
+    color: #f5b800;
+    letter-spacing: 3px;
+    margin-top: 10px;
+    font-weight: bold;
+  }
+
+  /* legend — top right */
+  #legend {
+    position: absolute;
+    top: 20px;
+    right: 24px;
+    z-index: 5;
+    pointer-events: none;
+    text-align: right;
+  }
+  .leg-row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    margin-bottom: 5px;
+  }
+  .leg-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    border: 1.5px solid rgba(245,184,0,0.6);
+  }
+  .leg-label {
+    font-size: clamp(9px, 1vw, 12px);
+    color: #f5e080;
+    letter-spacing: 1px;
+    font-weight: bold;
+  }
+
+  /* ticker — bottom strip */
+  #ticker-bar {
+    height: 44px;
+    background: #0e2040;
+    border-top: 2px solid #f5b800;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    position: relative;
+    flex-shrink: 0;
+  }
+  #ticker-label {
+    flex-shrink: 0;
+    padding: 0 16px;
+    font-size: 13px;
+    color: #f5b800;
+    letter-spacing: 3px;
+    border-right: 2px solid #f5b800;
+    white-space: nowrap;
+    font-weight: bold;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    background: #091830;
+  }
+  #ticker-canvas {
+    flex: 1;
+    height: 100%;
+    display: block;
+  }
+
+  /* controls — bottom right overlay */
+  #controls {
+    position: absolute;
+    bottom: clamp(50px, 6.5vh, 62px);
+    right: 24px;
+    z-index: 6;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  #controls button {
+    background: rgba(14,32,64,0.92);
+    border: 1.5px solid #f5b800;
+    color: #f5b800;
+    font-family: 'Courier New', monospace;
+    font-size: clamp(10px, 1.1vw, 13px);
+    letter-spacing: 2px;
+    padding: 7px 18px;
+    cursor: pointer;
+    border-radius: 3px;
+    font-weight: bold;
+    transition: background 0.15s, color 0.15s;
+  }
+  #controls button:hover {
+    background: rgba(245,184,0,0.2);
+    color: #ffe066;
+  }
+  #spd-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(14,32,64,0.92);
+    border: 1.5px solid #f5b800;
+    border-radius: 3px;
+    padding: 6px 14px;
+  }
+  #spd-wrap label {
+    font-size: clamp(9px, 1vw, 12px);
+    color: #f5b800;
+    letter-spacing: 2px;
+    white-space: nowrap;
+    font-weight: bold;
+  }
+  #cfa-speed {
+    width: 80px;
+    accent-color: #f5b800;
+    cursor: pointer;
+  }
+  #spd-val {
+    font-size: clamp(10px, 1.1vw, 13px);
+    color: #f5b800;
+    min-width: 32px;
+    font-weight: bold;
+  }
+</style>
+</head>
+<body>
+<div id="stage">
+
+  <div id="map-area">
+    <canvas id="cfa-canvas"></canvas>
+    <div id="fade-overlay"></div>
+    <div id="final-msg">
+      <p>38 AIRCRAFT<br>GANDER, NEWFOUNDLAND</p>
+      <p class="subtitle">SEPTEMBER 11, 2001 — OPERATION YELLOW RIBBON</p>
+    </div>
+
+    <div id="hud">
+      <div id="hud-time">08:46 EDT</div>
+      <div id="hud-date">SEPTEMBER 11, 2001</div>
+      <div id="hud-count">TRACKING: 0 AIRCRAFT</div>
+    </div>
+
+    <div id="legend">
+      <div class="leg-row"><div class="leg-dot" style="background:#7ec8e8"></div><span class="leg-label">BRITISH / EUROPEAN</span></div>
+      <div class="leg-row"><div class="leg-dot" style="background:#f5b800"></div><span class="leg-label">US CARRIERS</span></div>
+      <div class="leg-row"><div class="leg-dot" style="background:#f5e080"></div><span class="leg-label">SCANDINAVIAN</span></div>
+      <div class="leg-row"><div class="leg-dot" style="background:#e8c060"></div><span class="leg-label">IBERIAN / LATIN AM.</span></div>
+      <div class="leg-row"><div class="leg-dot" style="background:#f0e8b0"></div><span class="leg-label">ASIA PACIFIC</span></div>
+      <div class="leg-row"><div class="leg-dot" style="background:#f5b800"></div><span class="leg-label">GANDER (CYQX)</span></div>
+    </div>
+
+    <div id="controls">
+      <button id="btn-play">&#9654; PLAY</button>
+      <button id="btn-reset">&#8635; RESET</button>
+      <div id="spd-wrap">
+        <label for="cfa-speed">SPEED</label>
+        <input type="range" id="cfa-speed" min="5" max="80" step="5" value="20">
+        <span id="spd-val">20x</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="ticker-bar">
+    <div id="ticker-label">ATC FEED</div>
+    <canvas id="ticker-canvas"></canvas>
+  </div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+<script>
+(function(){
+
+const GANDER = [-54.568, 48.936];
+
+const FLIGHTS = [
+  {id:'AC001', label:'Air Canada 001',     from:'London Heathrow',  o:[-0.461,51.477],  dest:[-73.74,45.47], color:'#7ec8e8', delay:8,  divMin:42},
+  {id:'AC002', label:'Air Canada 002',     from:'Frankfurt',        o:[8.570,50.033],   dest:[-73.74,45.47], color:'#7ec8e8', delay:5,  divMin:38},
+  {id:'AC003', label:'Air Canada 856',     from:'Paris CDG',        o:[2.549,49.009],   dest:[-73.74,45.47], color:'#7ec8e8', delay:12, divMin:46},
+  {id:'AC004', label:'Air Canada 849',     from:'Amsterdam',        o:[4.764,52.308],   dest:[-73.74,45.47], color:'#7ec8e8', delay:3,  divMin:35},
+  {id:'AC005', label:'Air Canada 738',     from:'Dublin',           o:[-6.270,53.421],  dest:[-73.74,45.47], color:'#7ec8e8', delay:18, divMin:52},
+  {id:'AC006', label:'Air Canada 015',     from:'Manchester',       o:[-2.275,53.354],  dest:[-73.74,45.47], color:'#7ec8e8', delay:6,  divMin:40},
+  {id:'BA178', label:'British Airways 178',from:'London Heathrow',  o:[-0.461,51.477],  dest:[-77.04,38.85], color:'#7ec8e8', delay:9,  divMin:44},
+  {id:'BA226', label:'British Airways 226',from:'London Heathrow',  o:[-0.461,51.477],  dest:[-87.90,41.97], color:'#7ec8e8', delay:14, divMin:48},
+  {id:'VS076', label:'Virgin Atlantic 076',from:'London Heathrow',  o:[-0.461,51.477],  dest:[-73.78,40.63], color:'#7ec8e8', delay:4,  divMin:37},
+  {id:'VS004', label:'Virgin Atlantic 004',from:'London Heathrow',  o:[-0.461,51.477],  dest:[-87.90,41.97], color:'#7ec8e8', delay:20, divMin:55},
+  {id:'LH400', label:'Lufthansa 400',      from:'Frankfurt',        o:[8.570,50.033],   dest:[-87.90,41.97], color:'#aad4f0', delay:7,  divMin:41},
+  {id:'LH404', label:'Lufthansa 404',      from:'Munich',           o:[11.786,48.353],  dest:[-73.78,40.63], color:'#aad4f0', delay:16, divMin:50},
+  {id:'AF022', label:'Air France 022',     from:'Paris CDG',        o:[2.549,49.009],   dest:[-73.78,40.63], color:'#aad4f0', delay:2,  divMin:34},
+  {id:'AF116', label:'Air France 116',     from:'Paris CDG',        o:[2.549,49.009],   dest:[-77.04,38.85], color:'#aad4f0', delay:22, divMin:58},
+  {id:'KL641', label:'KLM 641',            from:'Amsterdam',        o:[4.764,52.308],   dest:[-73.78,40.63], color:'#aad4f0', delay:11, divMin:45},
+  {id:'SK903', label:'SAS 903',            from:'Copenhagen',       o:[12.656,55.618],  dest:[-73.78,40.63], color:'#f5e080', delay:13, divMin:47},
+  {id:'AY053', label:'Finnair 053',        from:'Helsinki',         o:[24.963,60.317],  dest:[-73.78,40.63], color:'#f5e080', delay:19, divMin:53},
+  {id:'SK901', label:'SAS 901',            from:'Stockholm',        o:[17.918,59.651],  dest:[-73.78,40.63], color:'#f5e080', delay:10, divMin:44},
+  {id:'IB612', label:'Iberia 6123',        from:'Madrid',           o:[-3.567,40.472],  dest:[-73.78,40.63], color:'#e8c060', delay:15, divMin:49},
+  {id:'TP203', label:'TAP Portugal 203',   from:'Lisbon',           o:[-9.134,38.774],  dest:[-73.78,40.63], color:'#e8c060', delay:24, divMin:60},
+  {id:'SR111', label:'Swissair 111',       from:'Zurich',           o:[8.562,47.464],   dest:[-73.78,40.63], color:'#aad4f0', delay:17, divMin:51},
+  {id:'OS071', label:'Austrian 071',       from:'Vienna',           o:[16.570,48.110],  dest:[-73.78,40.63], color:'#aad4f0', delay:21, divMin:56},
+  {id:'AA082', label:'American 082',       from:'Paris CDG',        o:[2.549,49.009],   dest:[-73.78,40.63], color:'#f5b800', delay:1,  divMin:33},
+  {id:'AA056', label:'American 056',       from:'London Heathrow',  o:[-0.461,51.477],  dest:[-73.78,40.63], color:'#f5b800', delay:23, divMin:57},
+  {id:'AA927', label:'American 927',       from:'Buenos Aires',     o:[-58.53,-34.82],  dest:[-73.78,40.63], color:'#f5b800', delay:30, divMin:70},
+  {id:'UA925', label:'United 925',         from:'Frankfurt',        o:[8.570,50.033],   dest:[-73.78,40.63], color:'#f5b800', delay:0,  divMin:32},
+  {id:'UA929', label:'United 929',         from:'London Heathrow',  o:[-0.461,51.477],  dest:[-87.90,41.97], color:'#f5b800', delay:25, divMin:62},
+  {id:'DL072', label:'Delta 072',          from:'Frankfurt',        o:[8.570,50.033],   dest:[-73.78,40.63], color:'#f5b800', delay:26, divMin:63},
+  {id:'CO005', label:'Continental 005',    from:'London Gatwick',   o:[-0.190,51.148],  dest:[-73.78,40.63], color:'#f5b800', delay:28, divMin:65},
+  {id:'NW082', label:'Northwest 082',      from:'Amsterdam',        o:[4.764,52.308],   dest:[-73.78,40.63], color:'#f5b800', delay:27, divMin:64},
+  {id:'AM066', label:'Aeromexico 066',     from:'Madrid',           o:[-3.567,40.472],  dest:[-99.07,19.43], color:'#e8c060', delay:32, divMin:72},
+  {id:'RG254', label:'Varig 254',          from:'Sao Paulo',        o:[-46.47,-23.43],  dest:[-73.78,40.63], color:'#e8c060', delay:35, divMin:78},
+  {id:'JL006', label:'JAL 006',            from:'Tokyo',            o:[139.78,35.55],   dest:[-73.78,40.63], color:'#f0e8b0', delay:29, divMin:68},
+  {id:'KE082', label:'Korean Air 082',     from:'Seoul',            o:[126.45,37.46],   dest:[-73.78,40.63], color:'#f0e8b0', delay:31, divMin:71},
+  {id:'CI006', label:'China Airlines 006', from:'Taipei',           o:[121.23,25.07],   dest:[-73.78,40.63], color:'#f0e8b0', delay:33, divMin:74},
+  {id:'OK201', label:'Czech Airlines 201', from:'Prague',           o:[14.260,50.100],  dest:[-73.78,40.63], color:'#aad4f0', delay:34, divMin:76},
+  {id:'CS201', label:'Crossair 201',       from:'Zurich',           o:[8.562,47.464],   dest:[-73.78,40.63], color:'#aad4f0', delay:36, divMin:79},
+  {id:'SN501', label:'Sabena 501',         from:'Brussels',         o:[4.484,50.901],   dest:[-73.78,40.63], color:'#aad4f0', delay:37, divMin:80},
+];
+
+const TOTAL_MIN = 175;
+
+const canvas = document.getElementById('cfa-canvas');
+const ctx = canvas.getContext('2d');
+let W, H, projection;
+
+function resize(){
+  const mapArea = document.getElementById('map-area');
+  W = mapArea.clientWidth;
+  H = mapArea.clientHeight;
+  canvas.width = W;
+  canvas.height = H;
+  projection = d3.geoMercator()
+    .scale(Math.min(W, H) * 2.1)
+    .center([-54.568, 48.936])
+    .translate([W * 0.5, H * 0.52]);
+}
+
+window.addEventListener('resize', ()=>{ resize(); drawFrame(animT); });
+resize();
+
+function ll(lon, lat){
+  try { return projection([lon,lat]); } catch(e){ return null; }
+}
+
+function greatCirclePt(o, d, t){
+  const r = Math.PI/180, deg = 180/Math.PI;
+  const la1=o[1]*r, lo1=o[0]*r, la2=d[1]*r, lo2=d[0]*r;
+  const dd = 2*Math.asin(Math.sqrt(
+    Math.pow(Math.sin((la2-la1)/2),2)+Math.cos(la1)*Math.cos(la2)*Math.pow(Math.sin((lo2-lo1)/2),2)
+  ));
+  if(dd < 0.0001) return [o[0]*(1-t)+d[0]*t, o[1]*(1-t)+d[1]*t];
+  const A=Math.sin((1-t)*dd)/Math.sin(dd), B=Math.sin(t*dd)/Math.sin(dd);
+  const x=A*Math.cos(la1)*Math.cos(lo1)+B*Math.cos(la2)*Math.cos(lo2);
+  const y=A*Math.cos(la1)*Math.sin(lo1)+B*Math.cos(la2)*Math.sin(lo2);
+  const z=A*Math.sin(la1)+B*Math.sin(la2);
+  return [Math.atan2(y,x)*deg, Math.atan2(z,Math.sqrt(x*x+y*y))*deg];
+}
+
+let worldData = null;
+let animRunning = false;
+let animT = 0;
+let lastTS = null;
+let speed = 20;
+let landedIds = new Set();
+let divIds = new Set();
+let fadeDone = false;
+
+const tickerItems = [
+  {text: 'FAA ORDERS NATIONAL GROUND STOP — 09:08 EDT', color: '#7ec8e8'},
+  {text: 'CANADIAN AIRSPACE OPEN — OPERATION YELLOW RIBBON INITIATED', color: '#7ec8e8'},
+  {text: 'TRANSPORT CANADA DIRECTS 224 AIRCRAFT TO 17 AIRPORTS', color: '#7ec8e8'},
+];
+
+const tickerCanvas = document.getElementById('ticker-canvas');
+const tCtx = tickerCanvas.getContext('2d');
+let tickerX = 0;
+let tickerW = 0;
+let tickerH = 38;
+let tickerLastTS = null;
+const TICKER_SPEED = 80;
+
+function resizeTicker(){
+  tickerCanvas.width = tickerCanvas.offsetWidth * window.devicePixelRatio;
+  tickerCanvas.height = tickerCanvas.offsetHeight * window.devicePixelRatio;
+  tickerW = tickerCanvas.width;
+  tickerH = tickerCanvas.height;
+  tCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
+  tickerX = tickerCanvas.offsetWidth;
+}
+
+function measureTickerContent(){
+  const font = `bold ${13 * window.devicePixelRatio}px "Courier New", monospace`;
+  tCtx.font = `bold 13px "Courier New", monospace`;
+  let total = 0;
+  tickerItems.forEach(item => {
+    total += tCtx.measureText(item.text).width + 60;
+  });
+  return total;
+}
+
+function drawTicker(){
+  const cw = tickerCanvas.offsetWidth;
+  const ch = tickerCanvas.offsetHeight;
+  tCtx.clearRect(0,0,cw,ch);
+  tCtx.fillStyle = '#091830';
+  tCtx.fillRect(0,0,cw,ch);
+
+  tCtx.font = `bold 14px "Courier New", monospace`;
+  tCtx.textBaseline = 'middle';
+
+  let x = tickerX;
+  let totalW = 0;
+  tickerItems.forEach(item => {
+    const tw = tCtx.measureText(item.text).width;
+    tCtx.fillStyle = item.color;
+    tCtx.fillText(item.text, x, ch/2);
+    tCtx.fillStyle = 'rgba(245,184,0,0.4)';
+    tCtx.fillRect(x + tw + 20, ch/2 - 5, 2, 10);
+    x += tw + 60;
+    totalW += tw + 60;
+  });
+
+  return totalW;
+}
+
+function tickerLoop(ts){
+  if(!tickerLastTS) tickerLastTS = ts;
+  const dt = (ts - tickerLastTS) / 1000;
+  tickerLastTS = ts;
+
+  const totalW = drawTicker();
+  tickerX -= TICKER_SPEED * dt;
+  if(tickerX < -totalW){
+    tickerX = tickerCanvas.offsetWidth;
+  }
+
+  requestAnimationFrame(tickerLoop);
+}
+
+function addTickerMessage(text, color){
+  tickerItems.push({text, color});
+  if(tickerItems.length > 40) tickerItems.shift();
+}
+
+window.addEventListener('resize', resizeTicker);
+
+function timeStr(m){
+  const base = 8*60+46;
+  const total = (base+m) % (24*60);
+  const h = Math.floor(total/60), mm = total%60;
+  return (h<10?'0':'')+h+':'+(mm<10?'0':'')+mm+' EDT';
+}
+
+function getFlightState(f, tMin){
+  if(tMin < f.delay) return {phase:'pre'};
+  const enDur = f.divMin - f.delay;
+  if(tMin < f.divMin){
+    return {phase:'en', t:(tMin-f.delay)/enDur};
+  }
+  const toG = 55 + (FLIGHTS.indexOf(f)%5)*4;
+  if(tMin < f.divMin + toG){
+    return {phase:'divert', t:(tMin-f.divMin)/toG};
+  }
+  return {phase:'landed'};
+}
+
+function drawMapBase(){
+  ctx.save();
+  ctx.fillStyle = '#1a3a7a';
+  ctx.fillRect(0,0,W,H);
+
+  if(worldData){
+    ctx.fillStyle = '#c8a84b';
+    ctx.strokeStyle = '#8a6820';
+    ctx.lineWidth = 1.2;
+    worldData.features.forEach(f=>{
+      const path = d3.geoPath().projection(projection).context(ctx);
+      ctx.beginPath(); path(f);
+      ctx.fill(); ctx.stroke();
+    });
+  }
+
+  ctx.strokeStyle = 'rgba(126,200,232,0.25)';
+  ctx.lineWidth = 0.5;
+  const grat = d3.geoGraticule()();
+  const gpath = d3.geoPath().projection(projection).context(ctx);
+  ctx.beginPath(); gpath(grat); ctx.stroke();
+  ctx.restore();
+}
+
+function drawGander(){
+  const gxy = ll(GANDER[0], GANDER[1]);
+  if(!gxy) return;
+  const pulse = 0.5+0.5*Math.sin(Date.now()/400);
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(gxy[0],gxy[1],22+pulse*12,0,Math.PI*2);
+  ctx.strokeStyle = `rgba(245,184,0,${0.15+pulse*0.3})`;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(gxy[0],gxy[1],12+pulse*5,0,Math.PI*2);
+  ctx.strokeStyle = `rgba(245,184,0,${0.35+pulse*0.4})`;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(gxy[0],gxy[1],7,0,Math.PI*2);
+  ctx.fillStyle = '#f5b800';
+  ctx.fill();
+  ctx.fillStyle = '#f5b800';
+  const fs = Math.max(13, Math.round(W*0.018));
+  ctx.font = `bold ${fs}px Courier New`;
+  ctx.fillText('GANDER (CYQX)', gxy[0]+16, gxy[1]-12);
+  ctx.font = `${Math.max(10,Math.round(W*0.013))}px Courier New`;
+  ctx.fillStyle = '#7ec8e8';
+  ctx.fillText('NEWFOUNDLAND', gxy[0]+16, gxy[1]+6);
+  ctx.restore();
+}
+
+function drawFrame(tMin){
+  ctx.clearRect(0,0,W,H);
+  drawMapBase();
+
+  let inFlight=0, landed=0;
+
+  FLIGHTS.forEach(f=>{
+    const st = getFlightState(f, tMin);
+    if(st.phase==='pre') return;
+    if(st.phase==='landed'){ landed++; return; }
+    inFlight++;
+
+    const divPt = greatCirclePt(f.o, f.dest, 0.45);
+
+    let pos, trailStart, trailEnd;
+
+    if(st.phase==='en'){
+      const t = st.t * 0.45;
+      pos = greatCirclePt(f.o, f.dest, t);
+      trailStart = f.o;
+      trailEnd = pos;
+    } else {
+      pos = greatCirclePt(divPt, GANDER, st.t);
+      trailStart = divPt;
+      trailEnd = pos;
+    }
+
+    const pxy = ll(pos[0],pos[1]);
+    if(!pxy) return;
+
+    // Draw full path from trail start to current position as multi-segment great circle
+    const SEGMENTS = 60;
+    const startLl = trailStart;
+    const endLl = trailEnd;
+    ctx.save();
+    ctx.beginPath();
+    let started = false;
+    for(let i=0; i<=SEGMENTS; i++){
+      const t = i/SEGMENTS;
+      const pt = greatCirclePt(startLl, endLl, t);
+      const xy = ll(pt[0], pt[1]);
+      if(!xy) { started = false; continue; }
+      if(!started){ ctx.moveTo(xy[0],xy[1]); started=true; }
+      else ctx.lineTo(xy[0],xy[1]);
+    }
+    ctx.strokeStyle = f.color + 'cc';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.restore();
+
+    // Heading angle from last two trail points
+    const prevPt = greatCirclePt(trailStart, trailEnd, 0.97);
+    const prevXy = ll(prevPt[0], prevPt[1]);
+    const ang = prevXy ? Math.atan2(pxy[1]-prevXy[1], pxy[0]-prevXy[0]) : 0;
+
+    ctx.save();
+    ctx.translate(pxy[0],pxy[1]);
+    ctx.rotate(ang);
+    ctx.fillStyle = f.color;
+    ctx.strokeStyle = '#f5b800';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(7,0);
+    ctx.lineTo(-5,3.5);
+    ctx.lineTo(-2.5,0);
+    ctx.lineTo(-5,-3.5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+
+    if(!divIds.has(f.id) && st.phase==='divert'){
+      divIds.add(f.id);
+      addTickerMessage(`${f.label} — DIVERTED FROM ${f.from.toUpperCase()} — HEADING GANDER`, '#f5b800');
+    }
+    if(!landedIds.has(f.id) && st.phase==='landed'){
+      landedIds.add(f.id);
+      addTickerMessage(`${f.label} — LANDED GANDER CYQX`, '#7ec8e8');
+    }
+  });
+
+  drawGander();
+
+  document.getElementById('hud-time').textContent = timeStr(tMin);
+  document.getElementById('hud-count').textContent =
+    `TRACKING: ${inFlight}  |  LANDED: ${landed} / ${FLIGHTS.length}`;
+
+  if(landed >= FLIGHTS.length && !fadeDone){
+    fadeDone = true;
+    setTimeout(()=>{
+      document.getElementById('fade-overlay').classList.add('fading');
+      document.getElementById('final-msg').classList.add('visible');
+    }, 2000);
+  }
+}
+
+let rafId = null;
+
+function animate(ts){
+  if(!lastTS) lastTS = ts;
+  const dt = (ts-lastTS)/1000;
+  lastTS = ts;
+  animT += dt * speed * (1/60);
+  if(animT > TOTAL_MIN) animT = TOTAL_MIN;
+  drawFrame(animT);
+  if(animT < TOTAL_MIN && animRunning){
+    rafId = requestAnimationFrame(animate);
+  } else if(animT >= TOTAL_MIN){
+    setTimeout(() => {
+      animT = 0;
+      landedIds.clear();
+      divIds.clear();
+      fadeDone = false;
+      document.getElementById('fade-overlay').classList.remove('fading');
+      document.getElementById('final-msg').classList.remove('visible');
+      lastTS = null;
+      rafId = requestAnimationFrame(animate);
+    }, 8000);
+  }
+}
+
+document.getElementById('btn-play').addEventListener('click',function(){
+  if(animRunning){
+    animRunning=false; lastTS=null;
+    cancelAnimationFrame(rafId);
+    this.textContent = '\u25BA PLAY';
+  } else {
+    if(animT >= TOTAL_MIN){ animT=0; landedIds.clear(); divIds.clear(); fadeDone=false;
+      document.getElementById('fade-overlay').classList.remove('fading');
+      document.getElementById('final-msg').classList.remove('visible');
+    }
+    animRunning=true; lastTS=null;
+    this.textContent = '\u23F8 PAUSE';
+    rafId = requestAnimationFrame(animate);
+  }
+});
+
+document.getElementById('btn-reset').addEventListener('click',function(){
+  animRunning=false; lastTS=null;
+  cancelAnimationFrame(rafId);
+  animT=0; landedIds.clear(); divIds.clear(); fadeDone=false;
+  document.getElementById('fade-overlay').classList.remove('fading');
+  document.getElementById('final-msg').classList.remove('visible');
+  document.getElementById('btn-play').textContent = '\u25BA PLAY';
+  drawFrame(0);
+});
+
+document.getElementById('cfa-speed').addEventListener('input',function(){
+  speed = parseInt(this.value);
+  document.getElementById('spd-val').textContent = speed+'x';
+});
+
+document.addEventListener('keydown', e=>{
+  if(e.code==='Space'){
+    e.preventDefault();
+    document.getElementById('btn-play').click();
+  }
+  if(e.code==='KeyR') document.getElementById('btn-reset').click();
+  if(e.code==='KeyF' || e.code==='F11') {
+    if(!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{});
+    else document.exitFullscreen();
+  }
+});
+
+fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
+  .then(r=>r.json())
+  .then(topo=>{
+    worldData = topojson.feature(topo, topo.objects.countries);
+    drawFrame(0);
+  })
+  .catch(()=>{ drawFrame(0); });
+
+drawFrame(0);
+resizeTicker();
+requestAnimationFrame(tickerLoop);
+
+})();
+</script>
+</body>
+</html>
