@@ -571,16 +571,63 @@ function drawFrame(tMin){
     ctx.translate(pxy[0],pxy[1]);
     ctx.rotate(ang);
     ctx.fillStyle = f.color;
-    ctx.strokeStyle = '#f5b800';
-    ctx.lineWidth = 1.2;
+    ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+    ctx.lineWidth = 0.4;
+
+    const s = 1.0;
+
+    // fuselage — rounded oval, nose at +x
     ctx.beginPath();
-    ctx.moveTo(7,0);
-    ctx.lineTo(-5,3.5);
-    ctx.lineTo(-2.5,0);
-    ctx.lineTo(-5,-3.5);
+    ctx.moveTo(11*s, 0);
+    ctx.bezierCurveTo(11*s, -2.5*s,  6*s, -3*s,  0,     -3*s);
+    ctx.bezierCurveTo(-6*s, -3*s,  -11*s, -2*s, -12*s, -1*s);
+    ctx.lineTo(-12*s, 1*s);
+    ctx.bezierCurveTo(-11*s,  2*s,  -6*s,  3*s,   0,      3*s);
+    ctx.bezierCurveTo( 6*s,  3*s,   11*s,  2.5*s, 11*s,   0);
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
+
+    // left wing — very thin blade
+    ctx.beginPath();
+    ctx.moveTo( 3*s,  -2.8*s);   // root leading edge
+    ctx.lineTo( 0.5*s,-18*s);    // tip leading edge
+    ctx.lineTo(-0.5*s,-18*s);    // tip (almost a point)
+    ctx.lineTo(-3*s,  -3.2*s);   // root trailing edge
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // right wing
+    ctx.beginPath();
+    ctx.moveTo( 3*s,   2.8*s);
+    ctx.lineTo( 0.5*s, 18*s);
+    ctx.lineTo(-0.5*s, 18*s);
+    ctx.lineTo(-3*s,   3.2*s);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // left stabiliser — thin, small
+    ctx.beginPath();
+    ctx.moveTo(-8.5*s, -1.8*s);
+    ctx.lineTo(-9.5*s, -6.5*s);
+    ctx.lineTo(-10*s,  -6.5*s);
+    ctx.lineTo(-12*s,  -1.2*s);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // right stabiliser
+    ctx.beginPath();
+    ctx.moveTo(-8.5*s,  1.8*s);
+    ctx.lineTo(-9.5*s,  6.5*s);
+    ctx.lineTo(-10*s,   6.5*s);
+    ctx.lineTo(-12*s,   1.2*s);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
     ctx.restore();
 
     if(!divIds.has(f.id) && st.phase==='divert'){
